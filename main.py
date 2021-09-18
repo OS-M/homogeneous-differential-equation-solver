@@ -24,17 +24,8 @@ def is_zero(a):
     return abs(a) < 10 ** (-precision)
 
 
-latex_str = ""
-
-
-def show_latex(str):
-    plt.text(0, 1, str, fontsize=18)
-    plt.axis('off')
-    plt.show()
-
-
 def generate_equation(coefs):
-    res = ""
+    res = "Equation: "
     for i in range(0, len(coefs)):
         if is_zero(coefs[i]):
             continue
@@ -50,51 +41,87 @@ def generate_equation(coefs):
     return res.strip('+ ') + ' = 0'
 
 
+def get_solution(x, d):
+    result = ""
+    constant_index = 1
+    processed = set()
+    for l in range(0, len(d)):
+        if np.conj(x[l]) in processed:
+            continue
+        processed.add(x[l])
+        nu = np.imag(x[l])
+        lambda_ = np.real(x[l])
+
+        term = ""
+
+        q, constant_index = get_q(d[l], constant_index)
+        if is_zero(nu):
+            term += f'{q.strip("()")} + '
+        else:
+            term += f'{q}\cos({abs(nu)}t) + '
+
+        requires_quotes = d[l] > 1
+        if not is_zero(nu):
+            requires_quotes = True
+            q, constant_index = get_q(d[l], constant_index)
+            term += f'{q}\sin({abs(nu)}t)'
+
+        term = term.strip(' +')
+        if requires_quotes:
+            term = f'({term})'
+        term += f'e^[{lambda_}t]'
+        result += term.replace('[', '{').replace(']', '}').strip('+ ').replace(' + -', ' - ') + ' + '
+    return result.strip(' +')
+
+
+def generate_characteristic_equation(coefs):
+    res = r"Characteristic Equation: "
+    for i in range(0, len(coefs)):
+        if is_zero(coefs[i]):
+            continue
+        if i > 0:
+            if coefs[i] > 0:
+                res += ' + '
+            else:
+                res += ' - '
+
+        if not is_zero(coefs[i] - 1.):
+            res += f'{abs(coefs[i])}'
+        if len(coefs) - i - 1 > 0:
+            res += r'\nu'
+        if len(coefs) - i - 1 > 1:
+            res += f'^{len(coefs) - i - 1}'
+    return res.strip('+ ') + ' = 0'
+
+
+def show_latex(str):
+    plt.figure(figsize=(10, 3))
+    plt.text(0, 1, str, fontsize=18)
+    plt.axis('off')
+    plt.show()
+
+
 n = int(input("Degree: ")) + 1
+if n == 0:
+    print("Degree must be > 0")
+    exit(1)
 coefs = input("Coefficients: ").strip().split()
+if is_zero(float(coefs[0])):
+    print("First coef cant be 0")
+    exit(1)
 if n != len(coefs):
     print("Not enough or too many coefs")
     exit(1)
-coefs = list(map(lambda x: float(x), coefs))
-latex_str += f'$${generate_equation(coefs)}$$'
 
+coefs = list(map(lambda x: float(x) / float(coefs[0]), coefs))
+latex_str = f'$${generate_equation(coefs)}$$'
+latex_str += f'$${generate_characteristic_equation(coefs)}$$'
 coefs = np.array(coefs, dtype=complex)
+
 x = np.roots(coefs)
 x, d = np.unique(x.round(precision), return_counts=True)
-m = len(x)
-print("Roots number:", m)
 print("Unique roots:", x)
 print("D:", d)
-c_index = 1
-latex_str += "$$"
-processed = set()
-for l in range(0, m):
-    if np.conj(x[l]) in processed:
-        continue
-    processed.add(x[l])
-    nu = np.imag(x[l])
-    lambda_ = np.real(x[l])
-
-    answer = ""
-
-    q, c_index = get_q(d[l], c_index)
-    if is_zero(nu):
-        answer += f'{q.strip("()")} + '
-    else:
-        answer += f'{q}\cos({abs(nu)}t) + '
-
-    requires_quotes = d[l] > 1
-    if not is_zero(nu):
-        requires_quotes = True
-        q, c_index = get_q(d[l], c_index)
-        answer += f'{q}\sin({abs(nu)}t)'
-
-    answer = answer.strip(' +')
-    if requires_quotes:
-        answer = f'({answer})'
-    answer += f'e^[{lambda_}t]'
-    latex_str += answer.replace('[', '{').replace(']', '}').strip('+ ').replace(' + -', ' - ') + ' + '
-latex_str = latex_str.strip(' +') + "$$"
-
+latex_str += f'$$x(t) = {get_solution(x, d)}$$'
 print(latex_str)
 show_latex(latex_str)
