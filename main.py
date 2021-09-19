@@ -2,7 +2,10 @@ import math
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import pyplot
 
+params= {'text.latex.preamble' : r'\usepackage{amsmath}'}
+pyplot.rcParams.update(params)
 plt.rc('text', usetex=True)
 
 precision = 4
@@ -25,7 +28,7 @@ def is_zero(a):
 
 
 def generate_equation(coefs):
-    res = "Equation: "
+    res = r" \text{Equation: }"
     for i in range(0, len(coefs)):
         if is_zero(coefs[i]):
             continue
@@ -35,7 +38,7 @@ def generate_equation(coefs):
             else:
                 res += ' - '
 
-        if not is_zero(coefs[i] - 1.):
+        if not is_zero(abs(coefs[i]) - 1.):
             res += f'{abs(coefs[i])}'
         res += f'D^{len(coefs) - i - 1}x'
     return res.strip('+ ') + ' = 0'
@@ -69,13 +72,19 @@ def get_solution(x, d):
         term = term.strip(' +')
         if requires_quotes:
             term = f'({term})'
-        term += f'e^[{lambda_}t]'
+        if is_zero(abs(lambda_) - 1.):
+            if lambda_ < 0:
+                term += f'e^[-t]'
+            else:
+                term += f'e^[t]'
+        else:
+            term += f'e^[{lambda_}t]'
         result += term.replace('[', '{').replace(']', '}').strip('+ ').replace(' + -', ' - ') + ' + '
     return result.strip(' +')
 
 
 def generate_characteristic_equation(coefs):
-    res = r"Characteristic Equation: "
+    res = r" \text{Characteristic Equation: } "
     for i in range(0, len(coefs)):
         if is_zero(coefs[i]):
             continue
@@ -85,13 +94,28 @@ def generate_characteristic_equation(coefs):
             else:
                 res += ' - '
 
-        if not is_zero(coefs[i] - 1.):
+        if (not is_zero(abs(coefs[i]) - 1.)) or i == len(coefs) - 1:
             res += f'{abs(coefs[i])}'
         if len(coefs) - i - 1 > 0:
             res += r'\nu'
         if len(coefs) - i - 1 > 1:
             res += f'^{len(coefs) - i - 1}'
     return res.strip('+ ') + ' = 0'
+
+
+def generate_characteristic_equation_decomposition(x, d):
+    res = ""
+    for i in range(0, len(x)):
+        if is_zero(np.imag(x[i])):
+            if np.real(x[i]) < 0:
+                res += fr'(\nu + {-np.real(x[i])})'
+            else:
+                res += fr'(\nu - {np.real(x[i])})'
+        else:
+            res += fr'(\nu - {x[i]})'
+        if d[i] > 1:
+            res += f'^[{d[i]}]'
+    return res.replace('[', '{').replace(']', '}').replace('j', 'i').strip() + ' = 0'
 
 
 def show_latex(str):
@@ -114,14 +138,12 @@ if n != len(coefs):
     exit(1)
 
 coefs = list(map(lambda x: float(x) / float(coefs[0]), coefs))
-latex_str = f'$${generate_equation(coefs)}$$'
-latex_str += f'$${generate_characteristic_equation(coefs)}$$'
+latex_str = fr'$${generate_equation(coefs)}$$'
+latex_str += fr'$${generate_characteristic_equation(coefs)} \Longleftrightarrow $$'
 coefs = np.array(coefs, dtype=complex)
 
 x = np.roots(coefs)
 x, d = np.unique(x.round(precision), return_counts=True)
-print("Unique roots:", x)
-print("D:", d)
+latex_str += f'$$ \Longleftrightarrow {generate_characteristic_equation_decomposition(x, d)}$$'
 latex_str += f'$$x(t) = {get_solution(x, d)}$$'
-print(latex_str)
 show_latex(latex_str)
